@@ -22,8 +22,8 @@ let {
 // Initialising mongo collections
 let mongoUsersCollection = null;
 
-mongoMod.then(mongoDb => {
-    mongoUsersCollection = mongoDb.collection("users");
+mongoMod.then(usersCollection => {
+    mongoUsersCollection = usersCollection;
 });
 
 /**
@@ -44,7 +44,7 @@ async function signUp(req) {
         return INVALID_ACCOUNT_ERR
     }
 
-    return {res: 0, user: {id, token, email, nickname, status: 0}};
+    return {res: 0, user: {id, token, email, nickname}};
 }
 
 /**

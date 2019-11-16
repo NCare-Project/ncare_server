@@ -17,8 +17,8 @@ let {
 // Initialising mongo collections
 let mongoUsersCollection = null;
 
-mongoMod.then(mongoDb => {
-    mongoUsersCollection = mongoDb.collection("users");
+mongoMod.then(usersCollection => {
+    mongoUsersCollection = usersCollection;
 });
 
 /**
@@ -33,13 +33,13 @@ async function signIn(req) {
     }
 
     let {email, password} = req;
-    let {id, token, nickname, status} = await getUser(email, password);
+    let {id, token, nickname} = await getUser(email, password);
 
     if (!id) {
         return INVALID_ACCOUNT_ERR;
     }
 
-    return {res: 0, user: {id, token, email, nickname, status}};
+    return {res: 0, user: {id, token, email, nickname}};
 }
 
 /**
@@ -71,7 +71,7 @@ function checkParams(req) {
  */
 async function getUser(email, password) {
     let dbRes = await mongoUsersCollection.findOne({email, password},
-        {id: 1, token: 1, nickname: 1, status: 1});
+        {id: 1, token: 1, nickname: 1});
 
     if (!dbRes) {
         return false;
