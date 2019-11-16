@@ -1,0 +1,12 @@
+{
+  "name": "ncare_server",
+  "version": "0.0.1",
+  "main": "src/index.js",
+  "author": "The NCare Developers",
+  "license": "MIT",
+  "dependencies": {
+    "mongodb": "^3.3.4",
+    "socket.io": "^2.3.0",
+    "uuid": "^3.3.3"
+  }
+}
