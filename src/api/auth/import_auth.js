@@ -17,7 +17,9 @@ let {
 // Initialising mongo collections
 let mongoUsersCollection = null;
 
-mongoMod.then(usersCollection => {
+mongoMod.then(collections => {
+    let {usersCollection} = collections;
+
     mongoUsersCollection = usersCollection;
 });
 

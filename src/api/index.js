@@ -1,7 +1,13 @@
 "use strict";
 // Require modules
 let auth = require("./auth");
+let events = require("./events");
+let orgs = require("./orgs");
 
+// Require constants
+let {
+    UNAUTHORIZED_ERR
+} = require("./const/err");
 
 /**
  * Handles api requests
@@ -32,7 +38,7 @@ function handleRequests(ioSocket) {
 
         let res = await auth.signUp(req);
 
-        if (!res.res) {
+        if (res.res === 0) {
             user = res.user
         }
 
@@ -59,7 +65,7 @@ function handleRequests(ioSocket) {
         console.log("Req auth:sign_in:", req);
         let res = await auth.signIn(req);
 
-        if (!res.res) {
+        if (res.res === 0) {
             user = res.user;
         }
 
@@ -86,7 +92,7 @@ function handleRequests(ioSocket) {
         console.log("Req auth:import_auth:", req);
         let res = await auth.importAuth(req);
 
-        if (!res.res) {
+        if (res.res === 0) {
             user = res.user;
         }
 
@@ -112,11 +118,44 @@ function handleRequests(ioSocket) {
      */
     ioSocket.on("orgs:create", async req => {
         console.log("Req orgs:create:", req);
-        let res = await auth.importAuth(req);
+        let res = null;
+
+        if (user) {
+            res = await orgs.create(user.id, req);
+        } else {
+            res = UNAUTHORIZED_ERR;
+        }
 
         ioSocket.emit("orgs:create", res);
         console.log("Res orgs:create:", res);
     });
+
+    /**
+     * Handles events:create method
+     *
+     * Params:
+     *  title {String}
+     *  description {String}
+     *  type {Number}
+     *  coordinates {Array<Number>}
+     *
+     * Result:
+     *  None
+     */
+    ioSocket.on("events:create", async req => {
+        console.log("Req events:create:", req);
+        let res = null;
+
+        if (user) {
+            res = await events.create(user.id, req);
+        } else {
+            res = UNAUTHORIZED_ERR;
+        }
+
+        ioSocket.emit("events:create", res);
+        console.log("Res events:create:", res);
+    });
+
 }
 
 module.exports = handleRequests;

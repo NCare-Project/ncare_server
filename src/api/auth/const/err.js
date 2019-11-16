@@ -1,5 +1,5 @@
 "use strict";
-const INVALID_PARAMS_ERR = {res: 1};
+const INVALID_PARAMS_ERR = {res: 2};
 const INVALID_ACCOUNT_ERR = {res: 10};
 
 module.exports = {

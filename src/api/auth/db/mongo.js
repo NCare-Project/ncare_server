@@ -16,6 +16,6 @@ module.exports = new Promise(resolve => {
         let db = client.db(MONGO_DB_NAME);
         let usersCollection = db.collection("users");
 
-        resolve(usersCollection);
+        resolve({usersCollection});
     });
 });

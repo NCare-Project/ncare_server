@@ -19,7 +19,9 @@ let {
 // Initialising mongo collections
 let mongoOrgsCollection = null;
 
-mongoMod.then(orgsCollection => {
+mongoMod.then(collections => {
+    let {orgsCollection} = collections;
+
     mongoOrgsCollection = orgsCollection;
 });
 
@@ -38,7 +40,7 @@ async function create(userId, req) {
     let {name, description} = req;
     let {id} = await addOrg(userId, name, description);
 
-    return {res: 0, org: {id, name, description, admin_id: userId, user_ids: [], zones: []}};
+    return {res: 0, org: {id, name, description, admin_id: userId, user_ids: []}};
 }
 
 /**
@@ -73,13 +75,13 @@ async function addOrg(userId, name, description) {
     let id = genOrgId();
 
     await mongoOrgsCollection.insertOne(
-        {id, name, description, admin_id: userId, user_ids: [], zones: []});
+        {id, name, description, admin_id: userId, user_ids: []});
 
     return {id};
 }
 
 /**
- * Generates user id
+ * Generates organisation id
  *
  * @returns {String}
  */
