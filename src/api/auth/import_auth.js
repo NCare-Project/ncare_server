@@ -9,8 +9,8 @@ let {
 } = require("./const/err");
 
 let {
-    EMAIL_REGEX,
-    PASSWORD_REGEX
+    ID_REGEX,
+    TOKEN_REGEX
 } = require("./const/regex");
 
 
@@ -22,20 +22,20 @@ mongoMod.then(mongoDb => {
 });
 
 /**
- * Implementation of auth:sign_in api method
+ * Implementation of auth:import_auth api method
  *
  * @param {Object} req
  * @returns {Object}
  */
-async function signIn(req) {
+async function importAuth(req) {
     if (!checkParams(req)) {
         return INVALID_PARAMS_ERR;
     }
 
-    let {email, password} = req;
-    let {id, token, nickname, status} = await getUser(email, password);
+    let {id, token} = req;
+    let {email, nickname, status} = await getUser(id, token);
 
-    if (!id) {
+    if (!email) {
         return INVALID_ACCOUNT_ERR;
     }
 
@@ -53,25 +53,25 @@ function checkParams(req) {
         return false;
     }
 
-    let {email, password} = req;
+    let {id, token} = req;
 
-    return typeof email == "string"
-        && typeof password == "string"
+    return typeof id == "string"
+        && typeof token == "string"
 
-        && EMAIL_REGEX.test(email)
-        && PASSWORD_REGEX.test(password);
+        && ID_REGEX.test(id)
+        && TOKEN_REGEX.test(token);
 }
 
 /**
  * Gets user from the database
  *
- * @param {String} email
- * @param {String} password
+ * @param {String} id
+ * @param {String} token
  * @returns {Object|Boolean}
  */
-async function getUser(email, password) {
-    let dbRes = await mongoUsersCollection.findOne({email, password},
-        {id: 1, token: 1, nickname: 1, status: 1});
+async function getUser(id, token) {
+    let dbRes = await mongoUsersCollection.findOne({id, token},
+        {email: 1, nickname: 1, status: 1});
 
     if (!dbRes) {
         return false;
@@ -80,4 +80,4 @@ async function getUser(email, password) {
     return dbRes;
 }
 
-module.exports = signIn;
+module.exports = importAuth;

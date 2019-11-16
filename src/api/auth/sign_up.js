@@ -44,7 +44,7 @@ async function signUp(req) {
         return INVALID_ACCOUNT_ERR
     }
 
-    return {res: 0, user: {id, token, nickname, status: 0}};
+    return {res: 0, user: {id, token, email, nickname, status: 0}};
 }
 
 /**
