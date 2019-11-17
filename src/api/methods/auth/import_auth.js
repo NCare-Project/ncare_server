@@ -1,20 +1,10 @@
 "use strict";
-// Require async modules
-let mongoMod = require("./db/mongo");
-
-// Require constants
-let {
-    INVALID_PARAMS_ERR,
-    INVALID_ACCOUNT_ERR
-} = require("./const/err");
-
-let {
-    ID_REGEX,
-    TOKEN_REGEX
-} = require("./const/regex");
+let err = require("../../const/err");
+let regex = require("../../const/regex");
+let mongoMod = require("../../db/mongo");
 
 
-// Initialising mongo collections
+// Initializing mongo collections
 let mongoUsersCollection = null;
 
 mongoMod.then(collections => {
@@ -31,16 +21,17 @@ mongoMod.then(collections => {
  */
 async function importAuth(req) {
     if (!checkParams(req)) {
-        return INVALID_PARAMS_ERR;
+        return err.INVALID_PARAMS_ERR;
     }
 
     let {id, token} = req;
     let {email, nickname, oid, isAdmin} = await getUser(id, token);
 
     if (!email) {
-        return INVALID_ACCOUNT_ERR;
+        return err.ACCOUNT_DOESNT_EXIST_ERR;
     }
 
+    // noinspection JSUnresolvedFunction
     return {res: 0, user: {id, token, email, nickname, oid, isAdmin}};
 }
 
@@ -60,8 +51,8 @@ function checkParams(req) {
     return typeof id == "string"
         && typeof token == "string"
 
-        && ID_REGEX.test(id)
-        && TOKEN_REGEX.test(token);
+        && regex.ID_REGEX.test(id)
+        && regex.TOKEN_REGEX.test(token);
 }
 
 /**
@@ -73,7 +64,7 @@ function checkParams(req) {
  */
 async function getUser(id, token) {
     let dbRes = await mongoUsersCollection.findOne({id, token},
-        {email: 1, nickname: 1, oid: 1, isAdmin: 1});
+        {projection: {email: 1, nickname: 1, oid: 1, isAdmin: 1}});
 
     if (!dbRes) {
         return false;

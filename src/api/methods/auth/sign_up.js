@@ -1,25 +1,12 @@
 "use strict";
-// Require modules
 let crypto = require("crypto");
-let uuid = require("uuid/v4");
-
-// Require async modules
-let mongoMod = require("./db/mongo");
-
-// Require constants
-let {
-    INVALID_PARAMS_ERR,
-    INVALID_ACCOUNT_ERR
-} = require("./const/err");
-
-let {
-    EMAIL_REGEX,
-    PASSWORD_REGEX,
-    NICKNAME_REGEX
-} = require("./const/regex");
+let uuid = require("uuid");
+let err = require("../../const/err");
+let regex = require("../../const/regex");
+let mongoMod = require("../../db/mongo");
 
 
-// Initialising mongo collections
+// Initializing mongo collections
 let mongoUsersCollection = null;
 
 mongoMod.then(collections => {
@@ -36,17 +23,18 @@ mongoMod.then(collections => {
  */
 async function signUp(req) {
     if (!checkParams(req)) {
-        return INVALID_PARAMS_ERR;
+        return err.INVALID_PARAMS_ERR;
     }
 
     let {email, password, nickname} = req;
     let {id, token} = await addUser(email, password, nickname);
 
     if (!id) {
-        return INVALID_ACCOUNT_ERR
+        return err.ACCOUNT_EXISTS_ERR;
     }
 
-    return {res: 0, user: {id, token, email, nickname, oid: null, isAdmin: false}};
+    // noinspection JSUnresolvedFunction
+    return {res: 0, user: {id, token, email, nickname}};
 }
 
 /**
@@ -66,9 +54,9 @@ function checkParams(req) {
         && typeof password == "string"
         && typeof nickname == "string"
 
-        && EMAIL_REGEX.test(email)
-        && PASSWORD_REGEX.test(password)
-        && NICKNAME_REGEX.test(nickname);
+        && regex.EMAIL_REGEX.test(email)
+        && regex.PASSWORD_REGEX.test(password)
+        && regex.NICKNAME_REGEX.test(nickname);
 }
 
 /**
@@ -80,34 +68,17 @@ function checkParams(req) {
  * @returns {Object|Boolean}
  */
 async function addUser(email, password, nickname) {
-    let id = genUserId(), token = getUserToken();
+    let id = uuid(),
+        token = crypto.randomBytes(16).toString("hex");
 
     try {
         await mongoUsersCollection.insertOne(
-            {id, token, email, password, nickname, oid: null, isAdmin: false});
+            {id, token, email, password, nickname});
 
         return {id, token};
     } catch (e) {
         return false;
     }
-}
-
-/**
- * Generates user id
- *
- * @returns {String}
- */
-function genUserId() {
-    return uuid();
-}
-
-/**
- * Generates user token
- *
- * @returns {String}
- */
-function getUserToken() {
-    return crypto.randomBytes(16).toString("hex");
 }
 
 module.exports = signUp;

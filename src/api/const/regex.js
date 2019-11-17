@@ -4,11 +4,16 @@ const TOKEN_REGEX = /^[0-9a-f]{32}$/;
 const EMAIL_REGEX = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 const PASSWORD_REGEX = /^[0-9A-z!@#%&*()-_]{6,20}$/;
 const NICKNAME_REGEX = /^[0-9A-z.-_]{3,20}$/;
+const NAME_REGEX = /^[A-z0-9\s]{3,50}$/;
+const DESCRIPTION_REGEX = /^[\s\S]{10,100}$/;
+
 
 module.exports = {
     ID_REGEX,
     TOKEN_REGEX,
     EMAIL_REGEX,
     PASSWORD_REGEX,
-    NICKNAME_REGEX
+    NICKNAME_REGEX,
+    NAME_REGEX,
+    DESCRIPTION_REGEX
 };

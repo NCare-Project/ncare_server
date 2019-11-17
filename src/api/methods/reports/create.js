@@ -1,57 +1,41 @@
 "use strict";
-// Require modules
 let uuid = require("uuid/v4");
-
-// Require async modules
-let mongoMod = require("./db/mongo");
-
-// Require constants
-let {
-    INVALID_PARAMS_ERR,
-    NO_ORGS_FROUND_ERR
-} = require("./const/err");
-
-let {
-    TITLE_REGEX,
-    DESCRIPTION_REGEX
-} = require("./const/regex");
+let err = require("../../const/err");
+let regex = require("../../const/regex");
+let mongoMod = require("../../db/mongo");
 
 
 // Initialising mongo collections
-let mongoEventsCollection = null,
-
-    mongoOrgsCollection = null,
-    mongoZonesCollection = null;
+let mongoZonesCollection = null,
+    mongoReportsCollection = null;
 
 mongoMod.then(collections => {
-    let {eventsCollection, orgsCollection, zonesCollection} = collections;
+    let {zonesCollection, reportsCollection} = collections;
 
-    mongoEventsCollection = eventsCollection;
-
-    mongoOrgsCollection = orgsCollection;
     mongoZonesCollection = zonesCollection;
+    mongoReportsCollection = reportsCollection;
 });
 
 /**
  * Implementation of reports:create api method
  *
- * @param {String} userId
+ * @param {String} uid
  * @param {Object} req
  * @returns {Object}
  */
-async function create(userId, req) {
+async function create(uid, req) {
     if (!checkParams(req)) {
-        return INVALID_PARAMS_ERR;
+        return err.INVALID_PARAMS_ERR;
     }
 
-    let {title, description, type, coordinates} = req;
-    let {id, oid, zid} = await addReport(userId, title, description, type, coordinates);
+    let {name, description, type, coordinates} = req;
+    let {id, oid, zid} = await addReport(uid, name, description, type, coordinates);
 
     if (!id) {
-        return NO_ORGS_FROUND_ERR;
+        return err.NOT_IN_ORG_ERR;
     }
 
-    return {res: 0, report: {id, title, description, type, coordinates, oid, zid}};
+    return {res: 0, report: {id, name, description, type, coordinates, uid, oid, zid}};
 }
 
 /**
@@ -65,13 +49,13 @@ function checkParams(req) {
         return false;
     }
 
-    let {title, description, type, coordinates} = req;
+    let {name, description, type, coordinates} = req;
 
-    return typeof title == "string"
+    return typeof name == "string"
         && typeof description == "string"
 
-        && TITLE_REGEX.test(title)
-        && DESCRIPTION_REGEX.test(description)
+        && regex.NAME_REGEX.test(name)
+        && regex.DESCRIPTION_REGEX.test(description)
 
         && checkType(type)
         && checkCoordinates(coordinates);
@@ -108,20 +92,20 @@ function checkCoordinates(coordinates) {
 /**
  * Adds report to the database
  *
- * @param {String} userId
- * @param {String} title
+ * @param {String} uid
+ * @param {String} name
  * @param {String} description
  * @param {Number} type
  * @param {Array} coordinates
  * @returns {Object|Boolean}
  */
-async function addReport(userId, title, description, type, coordinates) {
-    let id = genReportId();
+async function addReport(uid, name, description, type, coordinates) {
+    let id = uuid();
 
     let dbRes = await mongoZonesCollection.aggregate([
         {
             $geoNear: {
-                near: {type: "Point", coordinates: [122, 66]},
+                near: {type: "Point", coordinates},
                 distanceField: "distance",
             },
         }, {
@@ -129,8 +113,8 @@ async function addReport(userId, title, description, type, coordinates) {
                 cmp: {
                     $cmp: ["$radius", "$distance"]
                 },
-                oid: 1,
-                zid: 1
+                id: 1,
+                oid: 1
             }
         }, {
             $match: {
@@ -138,8 +122,8 @@ async function addReport(userId, title, description, type, coordinates) {
             }
         }, {
             $project: {
-                oid: 1,
-                zid: 1
+                id: 1,
+                oid: 1
             }
         }
     ]).next();
@@ -148,19 +132,10 @@ async function addReport(userId, title, description, type, coordinates) {
         return false;
     }
 
-    await mongoEventsCollection.insertOne(
-        {id, title, description, type, coordinates, oid: dbRes.oid, zid: dbRes.zid});
+    await mongoReportsCollection.insertOne(
+        {id, name, description, type, location: {type: "Point", coordinates}, uid, oid: dbRes.oid, zid: dbRes.id});
 
-    return {id, oid: dbRes.oid, zid: dbRes.zid};
-}
-
-/**
- * Generates report id
- *
- * @returns {String}
- */
-function genReportId() {
-    return uuid();
+    return {id, oid: dbRes.oid, zid: dbRes.id};
 }
 
 module.exports = create;

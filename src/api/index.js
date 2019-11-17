@@ -1,20 +1,12 @@
 "use strict";
-// Require modules
 let EventEmitter = require("events");
-let auth = require("./auth");
-let orgs = require("./orgs");
-let reports = require("./reports");
-
-// Require constants
-let {
-    UNAUTHORIZED_ERR,
-    NO_ORG_ERR,
-    ALREADY_IN_ORG_ERR,
-    NO_PERMISSION_FOR_ORG_ERR
-} = require("./const/err");
+let err = require("./const/err");
+let auth = require("./methods/auth");
+let orgs = require("./methods/orgs");
+let reports = require("./methods/reports");
 
 
-let events = new EventEmitter;
+let emitter = new EventEmitter;
 
 /**
  * Handles api requests
@@ -24,36 +16,50 @@ let events = new EventEmitter;
 function handleRequests(ioSocket) {
     let user = null;
 
-    let userHandler = (type, data) => {
-        // Do stuff
+    let userHandler = (event, data) => {
+        user.oid = data.oid;
+        user.isAdmin = false;
+
+        ioSocket.emit(event, data);
     };
 
-    let orgHandler = (type, eid, data) => {
-        console.log("Got notification on user", user.nickname);
-        if (eid === user.id) {
+    let orgHandler = (eid, event, data) => {
+        if (!user || user.id === eid) {
             return;
         }
 
-        switch (type) {
-            case "orgs:new_zone":
-                ioSocket.emit("updates:orgs:new_zone", {zone: data.zone});
-                break;
-
-            case "orgs:new_user":
-                break;
-
-            case "reports:new":
-                console.log("Got org handler (reports:new) for user", user.nickname);
-                ioSocket.emit("updates:reports:new", {report: data.report});
-                break;
-        }
+        delete data.res;
+        ioSocket.emit(event, data);
     };
 
-    function setEventHandlers() {
-        events.on(`user:${user.id}`, userHandler);
+    /**
+     * Sets user from response
+     *
+     * @param {Object} res
+     */
+    function setUser(res) {
+        removeUser();
+
+        user = res.user;
+        emitter.on(`user:${user.id}`, userHandler);
 
         if (user.oid) {
-            events.on(`org:${user.oid}`, orgHandler);
+            emitter.on(`org:${user.oid}`, orgHandler);
+        }
+    }
+
+    /**
+     * Removes user
+     */
+    function removeUser() {
+        if (user) {
+            emitter.off(`user:${user.id}`, userHandler);
+
+            if (user.oid) {
+                emitter.off(`org${user.oid}`, orgHandler);
+            }
+
+            user = null;
         }
     }
 
@@ -66,9 +72,7 @@ function handleRequests(ioSocket) {
         let res = await auth.signUp(req);
 
         if (res.res === 0) {
-            user = res.user;
-
-            setEventHandlers(res.user);
+            setUser(res);
         }
 
         ioSocket.emit("auth:sign_up", res);
@@ -83,9 +87,7 @@ function handleRequests(ioSocket) {
         let res = await auth.signIn(req);
 
         if (res.res === 0) {
-            user = res.user;
-
-            setEventHandlers(res.user);
+            setUser(res);
         }
 
         ioSocket.emit("auth:sign_in", res);
@@ -100,14 +102,13 @@ function handleRequests(ioSocket) {
         let res = await auth.importAuth(req);
 
         if (res.res === 0) {
-            user = res.user;
-
-            setEventHandlers(res.user);
+            setUser(res);
         }
 
         ioSocket.emit("auth:import_auth", res);
         console.log("Res auth:import_auth:", res);
     });
+
 
     /**
      * Handles orgs:create method
@@ -117,12 +118,18 @@ function handleRequests(ioSocket) {
         let res = null;
 
         if (!user) {
-            res = UNAUTHORIZED_ERR;
+            res = err.UNAUTHORIZED_ERR;
         } else if (user.oid) {
-            res = ALREADY_IN_ORG_ERR;
+            res = err.ALREADY_IN_ORG_ERR;
         } else {
             res = await orgs.create(user.id, req);
         }
+
+        if (res.res === 0) {
+            user.oid = res.org.id;
+            user.isAdmin = true;
+        }
+
 
         ioSocket.emit("orgs:create", res);
         console.log("Res orgs:create:", res);
@@ -136,41 +143,41 @@ function handleRequests(ioSocket) {
         let res = null;
 
         if (!user) {
-            res = UNAUTHORIZED_ERR;
+            res = err.UNAUTHORIZED_ERR;
         } else if (!user.oid) {
-            res = NO_ORG_ERR;
+            res = err.NOT_IN_ORG_ERR;
         } else if (!user.isAdmin) {
-            res = NO_PERMISSION_FOR_ORG_ERR
+            res = err.NO_PERMISSION_FOR_ORG_ERR
         } else {
             res = await orgs.createZone(user.oid, req);
         }
 
-        if (res.res === 0) {
-            events.emit(`org:${user.oid}`, "orgs:new_zone", user.id, res);
-
-        }
 
         ioSocket.emit("orgs:create_zone", res);
         console.log("Res orgs:create_zone:", res);
+
+        if (res.res === 0) {
+            emitter.emit(`org:${user.oid}`, user.id,"updates:orgs:new_zone", res);
+        }
     });
 
     /**
      * Handles orgs:get_zones method
      */
-    ioSocket.on("orgs:get_zones", async req => {
-        console.log("Req orgs:get_zones:", req);
+    ioSocket.on("orgs:zones", async req => {
+        console.log("Req orgs:zones:", req);
         let res = null;
 
         if (!user) {
-            res = UNAUTHORIZED_ERR;
+            res = err.UNAUTHORIZED_ERR;
         } else if (!user.oid) {
-            res = NO_ORG_ERR;
+            res = err.NOT_IN_ORG_ERR;
         } else {
-            res = await orgs.getZones(user.oid);
+            res = await orgs.zones(user.oid);
         }
 
-        ioSocket.emit("orgs:get_zones", res);
-        console.log("Res orgs:get_zones:", res);
+        ioSocket.emit("orgs:zones", res);
+        console.log("Res orgs:zones:", res);
     });
 
     /**
@@ -181,15 +188,40 @@ function handleRequests(ioSocket) {
         let res = null;
 
         if (!user) {
-            res = UNAUTHORIZED_ERR;
+            res = err.UNAUTHORIZED_ERR;
         } else if (!user.oid) {
-            res = NO_ORG_ERR;
+            res = err.NOT_IN_ORG_ERR;
         } else {
             res = await orgs.get(user.oid);
         }
 
         ioSocket.emit("orgs:get", res);
         console.log("Res orgs:get:", res);
+    });
+
+    /**
+     * Handles orgs:add_user method
+     */
+    ioSocket.on("orgs:add_user", async req => {
+        console.log("Req orgs:get:", req);
+        let res = null;
+
+        if (!user) {
+            res = err.UNAUTHORIZED_ERR;
+        } else if (!user.oid) {
+            res = err.NOT_IN_ORG_ERR;
+        } else if (!user.isAdmin) {
+            res = err.NO_PERMISSION_FOR_ORG_ERR
+        } else {
+            res = await orgs.addUser(user.oid, req);
+        }
+
+        ioSocket.emit("orgs:get", res);
+        console.log("Res orgs:get:", res);
+
+        if (res.res) {
+            emitter.emit(`user:${req.uid}`, "updates:orgs:new", {oid: user.oid});
+        }
     });
 
     /**
@@ -202,15 +234,15 @@ function handleRequests(ioSocket) {
         if (user) {
             res = await reports.create(user.id, req);
         } else {
-            res = UNAUTHORIZED_ERR;
-        }
-
-        if (res.res === 0) {
-            events.emit(`org:${res.report.oid}`, "reports:new", user.id, res);
+            res = err.UNAUTHORIZED_ERR;
         }
 
         ioSocket.emit("reports:create", res);
         console.log("Res reports:create:", res);
+
+        if (res.res === 0) {
+            emitter.emit(`org:${res.report.oid}`, user.id, "updates:reports:new", res);
+        }
     });
 
     /**
@@ -221,11 +253,9 @@ function handleRequests(ioSocket) {
         let res = null;
 
         if (!user) {
-            res = UNAUTHORIZED_ERR;
-        } else if (!user.oid) {
-            res = NO_ORG_ERR;
+            res = err.UNAUTHORIZED_ERR;
         } else {
-            res = await reports.get(user.oid);
+            res = await reports.get(user.id, user.oid);
         }
 
         ioSocket.emit("reports:get", res);
@@ -234,13 +264,8 @@ function handleRequests(ioSocket) {
 
     ioSocket.on("disconnect", () => {
         console.log("Disconnection");
-        if (user) {
-            events.off(`user:${user.id}`, userHandler);
 
-            if (user.oid) {
-                events.off(`org:${user.oid}`, orgHandler);
-            }
-        }
+        removeUser();
     });
 
 }
