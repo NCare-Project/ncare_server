@@ -145,10 +145,51 @@ function handleRequests(ioSocket) {
             res = await orgs.createZone(user.oid, req);
         }
 
-        events.emit(`orgs:${user.oid}`, "orgs:new_zone", user.id, res);
-        ioSocket.emit("orgs:create_zone", res);
+        if (res.res === 0) {
+            events.emit(`org:${user.oid}`, "orgs:new_zone", user.id, res);
 
+        }
+
+        ioSocket.emit("orgs:create_zone", res);
         console.log("Res orgs:create_zone:", res);
+    });
+
+    /**
+     * Handles orgs:get_zones method
+     */
+    ioSocket.on("orgs:get_zones", async req => {
+        console.log("Req orgs:get_zones:", req);
+        let res = null;
+
+        if (!user) {
+            res = UNAUTHORIZED_ERR;
+        } else if (!user.oid) {
+            res = NO_ORG_ERR;
+        } else {
+            res = await orgs.getZones(user.oid);
+        }
+
+        ioSocket.emit("orgs:get_zones", res);
+        console.log("Res orgs:get_zones:", res);
+    });
+
+    /**
+     * Handles orgs:get method
+     */
+    ioSocket.on("orgs:get", async req => {
+        console.log("Req orgs:get:", req);
+        let res = null;
+
+        if (!user) {
+            res = UNAUTHORIZED_ERR;
+        } else if (!user.oid) {
+            res = NO_ORG_ERR;
+        } else {
+            res = await orgs.get(user.oid);
+        }
+
+        ioSocket.emit("orgs:get", res);
+        console.log("Res orgs:get:", res);
     });
 
     /**

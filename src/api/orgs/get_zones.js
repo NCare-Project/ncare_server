@@ -9,17 +9,11 @@ let {
 
 
 // Initialising mongo collections
-let mongoUsersCollection = null,
-
-    mongoOrgsCollection = null,
-    mongoZonesCollection = null;
+let mongoZonesCollection = null;
 
 mongoMod.then(collections => {
-    let {usersCollection, orgsCollection, zonesCollection} = collections;
+    let {zonesCollection} = collections;
 
-    mongoUsersCollection = usersCollection;
-
-    mongoOrgsCollection = orgsCollection;
     mongoZonesCollection = zonesCollection;
 });
 
@@ -40,12 +34,12 @@ async function getZones(orgId) {
 }
 
 /**
- * Adds
+ * Gets organisation zones from the database
  *
  * @param {String} orgId
  * @returns {Object|Boolean}
  */
-async function addUserToOrg(orgId) {
+async function getZones1(orgId) {
     let dbRes = await mongoZonesCollection.find({oid: orgId}).toArray();
 
     if (!dbRes.length) {

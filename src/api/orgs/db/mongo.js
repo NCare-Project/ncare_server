@@ -15,9 +15,10 @@ module.exports = new Promise(resolve => {
     MongoClient.connect(MONGO_CONNECT_URL, { useUnifiedTopology: true }, (err, client) => {
         let db = client.db(MONGO_DB_NAME);
 
+        let usersCollection = db.collection("users");
         let orgsCollection = db.collection("orgs");
         let zoneCollection = db.collection("zone");
 
-        resolve({orgsCollection, zoneCollection});
+        resolve({usersCollection, orgsCollection, zoneCollection});
     });
 });
