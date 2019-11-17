@@ -7,7 +7,8 @@ let mongoMod = require("./db/mongo");
 
 // Require constants
 let {
-    INVALID_PARAMS_ERR
+    INVALID_PARAMS_ERR,
+    NO_ORGS_FROUND_ERR
 } = require("./const/err");
 
 let {
@@ -46,6 +47,10 @@ async function create(userId, req) {
     let {title, description, type, coordinates} = req;
     let {id, oid} = await addReport(userId, title, description, type, coordinates);
 
+    if (!id) {
+        return NO_ORGS_FROUND_ERR;
+    }
+
     return {res: 0, report: {id, title, description, type, coordinates, oid}};
 }
 
@@ -81,7 +86,7 @@ function checkParams(req) {
 function checkType(type) {
     return typeof type == "number"
 
-        && type > 0
+        && type >= 0
         && type < 10;
 }
 
@@ -108,7 +113,7 @@ function checkCoordinates(coordinates) {
  * @param {String} description
  * @param {Number} type
  * @param {Array} coordinates
- * @returns {Object}
+ * @returns {Object|Boolean}
  */
 async function addReport(userId, title, description, type, coordinates) {
     let id = genReportId();
@@ -116,13 +121,13 @@ async function addReport(userId, title, description, type, coordinates) {
     let dbRes = await mongoZonesCollection.aggregate([
         {
             $geoNear: {
-                near: {type: "Point", coordinates},
+                near: {type: "Point", coordinates: [122, 66]},
                 distanceField: "distance",
             },
         }, {
             $project: {
                 cmp: {
-                    $cmp: ["radius", "distance"]
+                    $cmp: ["$radius", "$distance"]
                 },
                 oid: 1
             }
@@ -136,6 +141,10 @@ async function addReport(userId, title, description, type, coordinates) {
             }
         }
     ]).next();
+
+    if (!dbRes) {
+        return false;
+    }
 
     await mongoEventsCollection.insertOne(
         {id, title, description, type, coordinates, oid: dbRes.oid});

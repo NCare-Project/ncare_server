@@ -24,6 +24,39 @@ let events = new EventEmitter;
 function handleRequests(ioSocket) {
     let user = null;
 
+    let userHandler = (type, data) => {
+        // Do stuff
+    };
+
+    let orgHandler = (type, eid, data) => {
+        console.log("Got notification on user", user.nickname);
+        if (eid === user.id) {
+            return;
+        }
+
+        switch (type) {
+            case "orgs:new_zone":
+                ioSocket.emit("updates:orgs:new_zone", {zone: data.zone});
+                break;
+
+            case "orgs:new_user":
+                break;
+
+            case "reports:new":
+                console.log("Got org handler (reports:new) for user", user.nickname);
+                ioSocket.emit("updates:reports:new", {report: data.report});
+                break;
+        }
+    };
+
+    function setEventHandlers() {
+        events.on(`user:${user.id}`, userHandler);
+
+        if (user.oid) {
+            events.on(`org:${user.oid}`, orgHandler);
+        }
+    }
+
     /**
      * Handles auth:sign_up method
      */
@@ -33,7 +66,9 @@ function handleRequests(ioSocket) {
         let res = await auth.signUp(req);
 
         if (res.res === 0) {
-            createSession(res.user);
+            user = res.user;
+
+            setEventHandlers(res.user);
         }
 
         ioSocket.emit("auth:sign_up", res);
@@ -49,6 +84,8 @@ function handleRequests(ioSocket) {
 
         if (res.res === 0) {
             user = res.user;
+
+            setEventHandlers(res.user);
         }
 
         ioSocket.emit("auth:sign_in", res);
@@ -63,7 +100,9 @@ function handleRequests(ioSocket) {
         let res = await auth.importAuth(req);
 
         if (res.res === 0) {
-            createSession(res.user);
+            user = res.user;
+
+            setEventHandlers(res.user);
         }
 
         ioSocket.emit("auth:import_auth", res);
@@ -123,37 +162,25 @@ function handleRequests(ioSocket) {
             res = UNAUTHORIZED_ERR;
         }
 
-        events.emit(`orgs:${res.report.oid}`, "reports:new", user.id, res);
-        ioSocket.emit("reports:create", res);
+        if (res.res === 0) {
+            events.emit(`org:${res.report.oid}`, "reports:new", user.id, res);
+        }
 
+        ioSocket.emit("reports:create", res);
         console.log("Res reports:create:", res);
     });
 
+    ioSocket.on("disconnect", () => {
+        console.log("Disconnection");
+        if (user) {
+            events.off(`user:${user.id}`, userHandler);
 
-    function createSession(user) {
-        events.on(`user:${user.id}`, (type, data) => {
-            // Do stuff
-        });
-
-        events.on(`org:${user.oid}`, (type, eid, data) => {
-            if (eid === user.id) {
-                return;
+            if (user.oid) {
+                events.off(`org:${user.oid}`, orgHandler);
             }
+        }
+    });
 
-            switch (type) {
-                case "orgs:new_zone":
-                    ioSocket.emit("updates:orgs:new_zone", {zone: data.zone});
-                    break;
-
-                case "orgs:new_user":
-                    break;
-
-                case "reports:new":
-                    ioSocket.emit("updates:reports:new", {report: data.report});
-                    break;
-            }
-        });
-    }
 }
 
 module.exports = handleRequests;
