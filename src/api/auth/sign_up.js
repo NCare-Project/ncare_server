@@ -46,7 +46,7 @@ async function signUp(req) {
         return INVALID_ACCOUNT_ERR
     }
 
-    return {res: 0, user: {id, token, email, nickname}};
+    return {res: 0, user: {id, token, email, nickname, oid: null, isAdmin: false}};
 }
 
 /**
@@ -83,7 +83,8 @@ async function addUser(email, password, nickname) {
     let id = genUserId(), token = getUserToken();
 
     try {
-        await mongoUsersCollection.insertOne({id, token, email, password, nickname});
+        await mongoUsersCollection.insertOne(
+            {id, token, email, password, nickname, oid: null, isAdmin: false});
 
         return {id, token};
     } catch (e) {

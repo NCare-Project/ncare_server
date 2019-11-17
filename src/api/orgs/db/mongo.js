@@ -14,8 +14,10 @@ module.exports = new Promise(resolve => {
     // noinspection JSIgnoredPromiseFromCall,JSCheckFunctionSignatures
     MongoClient.connect(MONGO_CONNECT_URL, { useUnifiedTopology: true }, (err, client) => {
         let db = client.db(MONGO_DB_NAME);
-        let orgsCollection = db.collection("orgs");
 
-        resolve({orgsCollection});
+        let orgsCollection = db.collection("orgs");
+        let zoneCollection = db.collection("zone");
+
+        resolve({orgsCollection, zoneCollection});
     });
 });

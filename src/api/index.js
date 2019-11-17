@@ -1,13 +1,20 @@
 "use strict";
 // Require modules
+let EventEmitter = require("events");
 let auth = require("./auth");
-let events = require("./events");
 let orgs = require("./orgs");
+let reports = require("./reports");
 
 // Require constants
 let {
-    UNAUTHORIZED_ERR
+    UNAUTHORIZED_ERR,
+    NO_ORG_ERR,
+    ALREADY_IN_ORG_ERR,
+    NO_PERMISSION_FOR_ORG_ERR
 } = require("./const/err");
+
+
+let events = new EventEmitter;
 
 /**
  * Handles api requests
@@ -19,19 +26,6 @@ function handleRequests(ioSocket) {
 
     /**
      * Handles auth:sign_up method
-     *
-     * Params:
-     *  email {String}
-     *  password {String}
-     *  nickname {String}
-     *
-     * Result:
-     *  user:
-     *   id {String}
-     *   token {String}
-     *   email {String}
-     *   nickname {String}
-     *   status {Number}
      */
     ioSocket.on("auth:sign_up", async req => {
         console.log("Req auth:sign_up:", req);
@@ -39,7 +33,7 @@ function handleRequests(ioSocket) {
         let res = await auth.signUp(req);
 
         if (res.res === 0) {
-            user = res.user
+            createSession(res.user);
         }
 
         ioSocket.emit("auth:sign_up", res);
@@ -48,18 +42,6 @@ function handleRequests(ioSocket) {
 
     /**
      * Handles auth:sign_in method
-     *
-     * Params:
-     *  email {String}
-     *  password {String}
-     *
-     * Result:
-     *  user:
-     *   id {String}
-     *   token {String}
-     *   email {String}
-     *   nickname {String}
-     *   status {Number}
      */
     ioSocket.on("auth:sign_in", async req => {
         console.log("Req auth:sign_in:", req);
@@ -75,25 +57,13 @@ function handleRequests(ioSocket) {
 
     /**
      * Handles auth:import_auth method
-     *
-     * Params:
-     *  id {String}
-     *  token {String}
-     *
-     * Result:
-     *  user:
-     *   id {String}
-     *   token {String}
-     *   email {String}
-     *   nickname {String}
-     *   status {Number}
      */
     ioSocket.on("auth:import_auth", async req => {
         console.log("Req auth:import_auth:", req);
         let res = await auth.importAuth(req);
 
         if (res.res === 0) {
-            user = res.user;
+            createSession(res.user);
         }
 
         ioSocket.emit("auth:import_auth", res);
@@ -102,28 +72,17 @@ function handleRequests(ioSocket) {
 
     /**
      * Handles orgs:create method
-     *
-     * Params:
-     *  name {String}
-     *  description {String}
-     *
-     * Result:
-     *  org:
-     *   id {String}
-     *   name {String}
-     *   description {String}
-     *   admin_id {String}
-     *   user_ids: {Array<String>}
-     *   zones: ...
      */
     ioSocket.on("orgs:create", async req => {
         console.log("Req orgs:create:", req);
         let res = null;
 
-        if (user) {
-            res = await orgs.create(user.id, req);
-        } else {
+        if (!user) {
             res = UNAUTHORIZED_ERR;
+        } else if (user.oid) {
+            res = ALREADY_IN_ORG_ERR;
+        } else {
+            res = await orgs.create(user.id, req);
         }
 
         ioSocket.emit("orgs:create", res);
@@ -131,31 +90,70 @@ function handleRequests(ioSocket) {
     });
 
     /**
-     * Handles events:create method
-     *
-     * Params:
-     *  title {String}
-     *  description {String}
-     *  type {Number}
-     *  coordinates {Array<Number>}
-     *
-     * Result:
-     *  None
+     * Handles orgs:create_zone method
      */
-    ioSocket.on("events:create", async req => {
-        console.log("Req events:create:", req);
+    ioSocket.on("orgs:create_zone", async req => {
+        console.log("Req orgs:create_zone:", req);
+        let res = null;
+
+        if (!user) {
+            res = UNAUTHORIZED_ERR;
+        } else if (!user.oid) {
+            res = NO_ORG_ERR;
+        } else if (!user.isAdmin) {
+            res = NO_PERMISSION_FOR_ORG_ERR
+        } else {
+            res = await orgs.createZone(user.oid, req);
+        }
+
+        events.emit(`orgs:${user.oid}`, "orgs:new_zone", user.id, res);
+        ioSocket.emit("orgs:create_zone", res);
+
+        console.log("Res orgs:create_zone:", res);
+    });
+
+
+    ioSocket.on("reports:create", async req => {
+        console.log("Req reports:create:", req);
         let res = null;
 
         if (user) {
-            res = await events.create(user.id, req);
+            res = await reports.create(user.id, req);
         } else {
             res = UNAUTHORIZED_ERR;
         }
 
-        ioSocket.emit("events:create", res);
-        console.log("Res events:create:", res);
+        events.emit(`orgs:${res.report.oid}`, "reports:new", user.id, res);
+        ioSocket.emit("reports:create", res);
+
+        console.log("Res reports:create:", res);
     });
 
+
+    function createSession(user) {
+        events.on(`user:${user.id}`, (type, data) => {
+            // Do stuff
+        });
+
+        events.on(`org:${user.oid}`, (type, eid, data) => {
+            if (eid === user.id) {
+                return;
+            }
+
+            switch (type) {
+                case "orgs:new_zone":
+                    ioSocket.emit("updates:orgs:new_zone", {zone: data.zone});
+                    break;
+
+                case "orgs:new_user":
+                    break;
+
+                case "reports:new":
+                    ioSocket.emit("updates:reports:new", {report: data.report});
+                    break;
+            }
+        });
+    }
 }
 
 module.exports = handleRequests;

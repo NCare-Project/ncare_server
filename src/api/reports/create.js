@@ -32,7 +32,7 @@ mongoMod.then(collections => {
 });
 
 /**
- * Implementation of events:create api method
+ * Implementation of reports:create api method
  *
  * @param {String} userId
  * @param {Object} req
@@ -44,8 +44,9 @@ async function create(userId, req) {
     }
 
     let {title, description, type, coordinates} = req;
+    let {id, oid} = await addReport(userId, title, description, type, coordinates);
 
-    await addEvent(userId, title, description, type, coordinates);
+    return {res: 0, report: {id, title, description, type, coordinates, oid}};
 }
 
 /**
@@ -100,7 +101,7 @@ function checkCoordinates(coordinates) {
 }
 
 /**
- * Adds organisation to the database
+ * Adds report to the database
  *
  * @param {String} userId
  * @param {String} title
@@ -109,8 +110,8 @@ function checkCoordinates(coordinates) {
  * @param {Array} coordinates
  * @returns {Object}
  */
-async function addEvent(userId, title, description, type, coordinates) {
-    let id = genEventId();
+async function addReport(userId, title, description, type, coordinates) {
+    let id = genReportId();
 
     let dbRes = await mongoZonesCollection.aggregate([
         {
@@ -123,7 +124,7 @@ async function addEvent(userId, title, description, type, coordinates) {
                 cmp: {
                     $cmp: ["radius", "distance"]
                 },
-                org_id: 1
+                oid: 1
             }
         }, {
             $match: {
@@ -131,22 +132,23 @@ async function addEvent(userId, title, description, type, coordinates) {
             }
         }, {
             $project: {
-                org_id: 1
+                oid: 1
             }
         }
     ]).next();
 
-    console.log(dbRes);
+    await mongoEventsCollection.insertOne(
+        {id, title, description, type, coordinates, oid: dbRes.oid});
 
-    return true;
+    return {id, oid: dbRes.oid};
 }
 
 /**
- * Generates event id
+ * Generates report id
  *
  * @returns {String}
  */
-function genEventId() {
+function genReportId() {
     return uuid();
 }
 

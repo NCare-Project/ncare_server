@@ -40,7 +40,7 @@ async function create(userId, req) {
     let {name, description} = req;
     let {id} = await addOrg(userId, name, description);
 
-    return {res: 0, org: {id, name, description, admin_id: userId, user_ids: []}};
+    return {res: 0, org: {id, name, description, uids: [], aid: userId}};
 }
 
 /**
@@ -75,7 +75,7 @@ async function addOrg(userId, name, description) {
     let id = genOrgId();
 
     await mongoOrgsCollection.insertOne(
-        {id, name, description, admin_id: userId, user_ids: []});
+        {id, name, description, uids: [], aid: userId});
 
     return {id};
 }
