@@ -151,7 +151,9 @@ function handleRequests(ioSocket) {
         console.log("Res orgs:create_zone:", res);
     });
 
-
+    /**
+     * Handles reports:create method
+     */
     ioSocket.on("reports:create", async req => {
         console.log("Req reports:create:", req);
         let res = null;
@@ -168,6 +170,25 @@ function handleRequests(ioSocket) {
 
         ioSocket.emit("reports:create", res);
         console.log("Res reports:create:", res);
+    });
+
+    /**
+     * Handles reports:get method
+     */
+    ioSocket.on("reports:get", async req => {
+        console.log("Req reports:get:", req);
+        let res = null;
+
+        if (!user) {
+            res = UNAUTHORIZED_ERR;
+        } else if (!user.oid) {
+            res = NO_ORG_ERR;
+        } else {
+            res = await reports.get(user.oid);
+        }
+
+        ioSocket.emit("reports:get", res);
+        console.log("Res reports:get:", res);
     });
 
     ioSocket.on("disconnect", () => {

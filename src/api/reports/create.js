@@ -45,13 +45,13 @@ async function create(userId, req) {
     }
 
     let {title, description, type, coordinates} = req;
-    let {id, oid} = await addReport(userId, title, description, type, coordinates);
+    let {id, oid, zid} = await addReport(userId, title, description, type, coordinates);
 
     if (!id) {
         return NO_ORGS_FROUND_ERR;
     }
 
-    return {res: 0, report: {id, title, description, type, coordinates, oid}};
+    return {res: 0, report: {id, title, description, type, coordinates, oid, zid}};
 }
 
 /**
@@ -129,7 +129,8 @@ async function addReport(userId, title, description, type, coordinates) {
                 cmp: {
                     $cmp: ["$radius", "$distance"]
                 },
-                oid: 1
+                oid: 1,
+                zid: 1
             }
         }, {
             $match: {
@@ -137,7 +138,8 @@ async function addReport(userId, title, description, type, coordinates) {
             }
         }, {
             $project: {
-                oid: 1
+                oid: 1,
+                zid: 1
             }
         }
     ]).next();
@@ -147,9 +149,9 @@ async function addReport(userId, title, description, type, coordinates) {
     }
 
     await mongoEventsCollection.insertOne(
-        {id, title, description, type, coordinates, oid: dbRes.oid});
+        {id, title, description, type, coordinates, oid: dbRes.oid, zid: dbRes.zid});
 
-    return {id, oid: dbRes.oid};
+    return {id, oid: dbRes.oid, zid: dbRes.zid};
 }
 
 /**
